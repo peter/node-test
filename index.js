@@ -32,7 +32,6 @@ app.use(bodyParser);
 app.use(function(req, res) {
   res.writeHead(200, {"Content-Type": "application/json"});
   var body = {params: req.params};
-  console.log("pm debug write body ", JSON.stringify(body));
   res.end(JSON.stringify(body));
 });
 
