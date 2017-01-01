@@ -1,0 +1,14 @@
+{
+  "name": "node-test",
+  "version": "1.0.0",
+  "description": "Trying out the node http api",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "connect": "3.5.0"
+  }
+}
