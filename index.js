@@ -1,8 +1,11 @@
-var connect = require('connect');
+var connect = require("connect");
 var http = require("http");
 var assert = require("assert");
-var parseUrl = url = require('url').parse;
-var parseQuery = require('querystring').parse;
+var parseUrl = url = require("url").parse;
+var parseQuery = require("querystring").parse;
+var fs = require("fs");
+var extname = require("path").extname;
+var swagger = require("./swagger");
 
 var app = connect();
 
@@ -10,10 +13,8 @@ var app = connect();
 // see https://github.com/ljharb/qs
 var queryParser = function(req, res, next) {
   var queryString = parseUrl(req.url).query;
-  console.log("pm debug queryString", queryString);
   if (queryString) {
     var query = parseQuery(queryString);
-    console.log("pm debug query", query);
     req.params = Object.assign((req.params || {}), query);
   }
   next();
@@ -42,14 +43,62 @@ var bodyParser = function(req, res, next) {
   }
 };
 
-var requestHandler = function(req, res) {
-  res.writeHead(200, {"Content-Type": "application/json"});
-  var body = {params: req.params};
-  res.end(JSON.stringify(body));
+var serveStatic = function(baseDir) {
+  return function(req, res, next) {
+    if (req.method == "GET") {
+      var path = parseUrl(req.url).path,
+          filePath = baseDir + path,
+          // NOTE: could use https://www.npmjs.com/package/mime
+          mimeTypes = {
+            ".html": "text/html",
+            ".jpeg": "image/jpeg",
+            ".jpg": "image/jpeg",
+            ".png": "image/png",
+            ".gif": "image/gif",
+            ".js": "text/javascript",
+            ".css": "text/css"
+          };
+      fs.stat(filePath, function(err, stat) {
+        if (!err && stat.isFile()) {
+            fs.readFile(filePath, function(err,data) {
+            var mimeType = mimeTypes[extname(path)];
+            res.writeHead(200, {"Content-Type": mimeType});
+            res.end(data);
+          });
+        } else {
+          next();
+        }
+      });
+    } else {
+      next();
+    }
+  };
+};
+
+var router = function(routes) {
+  var routesMap = routes.reduce(function(map, route) {
+    var _method = route.method.toLowerCase();
+    map[_method] = map[_method] || [];
+    map[_method].push(route);
+    return map;
+  }, {});
+  return function(req, res, next) {
+    var path = parseUrl(req.url).path;
+    var route = (routesMap[req.method.toLowerCase()] || []).find(function(r) {
+      return r.path === path;
+    });
+    if (route) {
+      route.handler(req, res, next);
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+  };
 };
 
 app.use(queryParser);
 app.use(bodyParser);
-app.use(requestHandler);
+app.use(serveStatic("resources/public"));
+app.use(router(swagger.routes));
 
 http.createServer(app).listen(3000);
