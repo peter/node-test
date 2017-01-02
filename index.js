@@ -1,8 +1,23 @@
 var connect = require('connect');
 var http = require("http");
 var assert = require("assert");
+var parseUrl = url = require('url').parse;
+var parseQuery = require('querystring').parse;
 
 var app = connect();
+
+// NOTE: Node query parser supports arrays but not foo[bar] nesting,
+// see https://github.com/ljharb/qs
+var queryParser = function(req, res, next) {
+  var queryString = parseUrl(req.url).query;
+  console.log("pm debug queryString", queryString);
+  if (queryString) {
+    var query = parseQuery(queryString);
+    console.log("pm debug query", query);
+    req.params = Object.assign((req.params || {}), query);
+  }
+  next();
+};
 
 var bodyParser = function(req, res, next) {
   if (req.method == "POST" || req.method == "PUT") {
@@ -27,12 +42,14 @@ var bodyParser = function(req, res, next) {
   }
 };
 
-app.use(bodyParser);
-
-app.use(function(req, res) {
+var requestHandler = function(req, res) {
   res.writeHead(200, {"Content-Type": "application/json"});
   var body = {params: req.params};
   res.end(JSON.stringify(body));
-});
+};
+
+app.use(queryParser);
+app.use(bodyParser);
+app.use(requestHandler);
 
 http.createServer(app).listen(3000);
